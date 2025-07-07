@@ -1,7 +1,6 @@
 #include <stdio.h>
 
 #include "mpu6050.h"
-#include "mpu6050_i2cdev.h"
 
 #define NUM 1000
 #define ALPHA 0.8

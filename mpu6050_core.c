@@ -79,7 +79,7 @@ int mpu6050_calibrate(mpu6050_t *mpu6050, unsigned int num, float alpha)
 	float new_acc_angle[3] = { 0, };
 	float acc_angle[3] = { 0, };
 
-	for (int i = 0; i < num; i++) {
+	for (unsigned int i = 0; i < num; i++) {
 		ret = mpu6050_read_raw(mpu6050, new_acc, new_gyro);
 		if (unlikely(ret != 0)) {
 			return ret;

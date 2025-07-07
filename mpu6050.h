@@ -52,5 +52,7 @@ enum enum_angle {
 int mpu6050_calibrate(mpu6050_t *mpu6050, unsigned int num, float alpha);
 int mpu6050_calc_angle(mpu6050_t *mpu6050);
 
+#include "mpu6050_i2cdev.h"
+
 #endif 
 
