@@ -69,7 +69,7 @@ static void do_complementary_filter(float acc_angle[], float gyro_angle[], float
 		angle[i] = (1.0 - CF_ALPHA) * acc_angle[i] + CF_ALPHA * gyro_angle[i];
 }
 
-int mpu6050_calibrate(mpu6050_t *mpu6050, unsigned int num, float alpha)
+int mpu6050_calibrate(mpu6050_t *mpu6050, uint32_t num, float alpha)
 {
 	int ret;
 	float new_gyro[3] = { 0, };
@@ -79,7 +79,7 @@ int mpu6050_calibrate(mpu6050_t *mpu6050, unsigned int num, float alpha)
 	float new_acc_angle[3] = { 0, };
 	float acc_angle[3] = { 0, };
 
-	for (unsigned int i = 0; i < num; i++) {
+	for (uint32_t i = 0; i < num; i++) {
 		ret = mpu6050_read_raw(mpu6050, new_acc, new_gyro);
 		if (unlikely(ret != 0)) {
 			return ret;

@@ -5,7 +5,7 @@
 #define NUM 1000
 #define ALPHA 0.8
 
-int main(int argc, char *argv[])
+int main()
 {
     int ret;
     mpu6050_t mpu;
