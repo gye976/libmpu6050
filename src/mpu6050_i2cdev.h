@@ -1,7 +1,7 @@
 #ifndef MPU6050_I2CDEV_H
 #define MPU6050_I2CDEV_H
 
-#include "mpu6050.h"
+typedef struct mpu6050 mpu6050_t;
 
 #define INT_ENABLE	0x38
 #define INT_STATUS	0x3A

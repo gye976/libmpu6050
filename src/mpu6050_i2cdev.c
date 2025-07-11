@@ -7,19 +7,24 @@
 #include <endian.h>
 #include <linux/i2c-dev.h>
 
-#include "mpu6050.h"
 #include "mpu6050_i2cdev.h"
+#include <mpu6050.h>
 
 static int mpu6050_i2cdev_read_raw(mpu6050_t *mpu6050, float acc[], float gyro[]);
 
 int mpu6050_i2cdev_init(mpu6050_t *mpu6050, unsigned int dev)
 {
-	memset(mpu6050, 0, sizeof(mpu6050_t));
-
+    int ret;
 	int fd;
 	char path[20];
+    
+	memset(mpu6050, 0, sizeof(mpu6050_t));
+
 	sprintf(path, "/dev/i2c-%d", dev);
-	OPEN_FD(fd, path, O_RDWR);
+	ret = open_fd(fd, path, O_RDWR);
+    if (unlikely(ret)) {
+        return ret;
+    }
 
 	mpu6050->fd = fd;
 

@@ -14,14 +14,21 @@ static inline int16_t be16toh_s(int16_t be_val)
     return (int16_t)be16toh(be_val);
 }
 
-static inline int mpu6050_read_raw(mpu6050_t *mpu6050, float acc[], float gyro[])
+static int mpu6050_read_raw(mpu6050_t *mpu6050, float acc[], float gyro[])
 {
+	int ret;
+
 	if (unlikely(mpu6050->read_raw == NULL)) {
 		fprintf(stderr, "read_raw is NULL");
 		return -1;
 	}
 
-	return mpu6050->read_raw(mpu6050, acc, gyro);
+	ret = mpu6050->read_raw(mpu6050, acc, gyro);
+
+        // printf("acc raw: %d, %d, %d\n", (int)accel_x, (int)accel_y, (int)accel_z);
+        // printf("gyro raw:%d, %d, %d\n", (int)gyro_x, (int)gyro_y, (int)gyro_z);
+
+	return ret;
 }
 
 static void mpu6050_gyro_bias(mpu6050_t *mpu6050, float *gyro)
@@ -35,7 +42,7 @@ static void mpu6050_gyro_bias(mpu6050_t *mpu6050, float *gyro)
 static void mpu6050_gyro_to_angle(mpu6050_t *mpu6050, float gyro[], float gyro_angle[])
 {
 	for (int i = 0; i < 3; i++)
-		gyro_angle[i] += gyro[i] * mpu6050->dt;
+		gyro_angle[i] += gyro[i] * mpu6050->sampling_dt;
 }
 
 static int mpu6050_acc_to_angle(float acc[], float new_acc_angle[])
@@ -102,6 +109,10 @@ int mpu6050_calibrate(mpu6050_t *mpu6050, uint32_t num, float alpha)
 	mpu6050->angle[0] = acc_angle[0];
 	mpu6050->angle[1] = acc_angle[1];
 
+        printf("gyro bias: %f, %f, %f\n", mpu6050->gyro_bias[0], mpu6050->gyro_bias[1], mpu6050->gyro_bias[2]);
+        printf("initial angle by acc: %f, %f, %f\n", mpu6050->angle[0], mpu6050->angle[1], mpu6050->angle[2]);
+        printf("\n");
+
 	return 0;
 }
 
@@ -124,7 +135,7 @@ int mpu6050_calc_angle(mpu6050_t *mpu6050)
 	float new_gyro[3] = { 0, };
 
 	ret = mpu6050_read_raw(mpu6050, new_acc, new_gyro);
-	if (unlikely(ret != 0))
+	if (unlikely(ret))
 		return ret;
 
 	mpu6050_gyro_bias(mpu6050, new_gyro);
@@ -137,7 +148,7 @@ int mpu6050_calc_angle(mpu6050_t *mpu6050)
 
 	/* acc */
 	ret = mpu6050_acc_to_angle(new_acc, new_acc_angle);
-	if (unlikely(ret != 0))
+	if (unlikely(ret))
 		return ret;
 
 	for (int i = 0; i < 2; i++) {
