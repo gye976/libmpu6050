@@ -120,14 +120,14 @@ static int mpu6050_apply_angle(mpu6050_t *mpu6050)
 	float *gyro_angle = mpu6050->gyro.angle;
 	float *cur_angle = mpu6050->angle;
 	float cf_ratio = mpu6050->cf_ratio;
-	float gain = mpu6050->gain;
+	float alpha = mpu6050->alpha;
 	
 	float sampling_angle[3];
 
 	if (unlikely(cf_ratio <= 0.0f || cf_ratio > 1.0f)) {
 		return -1;
 	}
-	if (unlikely(gain <= 0.0f || gain > 1.0f)) {
+	if (unlikely(alpha <= 0.0f || alpha > 1.0f)) {
 		return -1;
 	}
 
@@ -136,7 +136,7 @@ static int mpu6050_apply_angle(mpu6050_t *mpu6050)
 	sampling_angle[YAW] =  gyro_angle[YAW];
 
 	for (int i = 0; i < 3; i++) 
-		cur_angle[i] = (1.0 - gain) * cur_angle[i] + gain * sampling_angle[i];
+		cur_angle[i] = alpha * cur_angle[i] + (1.0f - alpha) * sampling_angle[i];
 
 	return 0;
 }
@@ -179,17 +179,18 @@ int mpu6050_calibrate(mpu6050_t *mpu6050, uint32_t num)
 			return ret;
 		}
 
-		for (int j = 0; j < 3; j++) {
+		for (int j = 0; j < 2; j++) {
 			acc_angle_total[j] += acc_angle[j];
 			rad_s_total[j] += rad_s[j];
 		}
+		rad_s_total[2] += rad_s[2];
 	}
 
-	for (int i = 0; i < 3; i++)
+	for (int i = 0; i < 2; i++) {
 		gyro_bias[i] = rad_s_total[i] / num;
-
-	cur_angle[0] = acc_angle_total[0] / num;
-	cur_angle[1] = acc_angle_total[1] / num;
+		cur_angle[i] = acc_angle_total[i] / num;
+	}
+	gyro_bias[2] = rad_s_total[2] / num;
 
         // printf("gyro bias: %f, %f, %f\n", gyro_bias[0], gyro_bias[1], gyro_bias[2]);
         // printf("initial angle by acc: %f, %f\n", cur_angle[0], cur_angle[1]);

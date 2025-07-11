@@ -36,7 +36,7 @@ typedef struct acc {
 
 	float scale;
 	/* Angle calculated acc */
-	float angle[3];
+	float angle[2];
 } acc_t;
 
 typedef struct gyro {
@@ -61,8 +61,8 @@ typedef struct mpu6050 {
 	/* Complementary Filter Ratio between acc and gyro */
 	float cf_ratio;
 
-	/* Filter gain */
-	float gain;
+	/* Low Pass Filter gain */
+	float alpha;
 	
 	int (*read_raw)(struct mpu6050 *mpu6050);
 

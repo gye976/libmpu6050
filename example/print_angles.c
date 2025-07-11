@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     }
 
     mpu.cf_ratio = 0.97f; 
-    mpu.gain = 1.0f;
+    mpu.alpha = 0.8f;
     mpu.gyro.sampling_ms = 10;
 
     ret = mpu6050_calibrate(&mpu, 100);
