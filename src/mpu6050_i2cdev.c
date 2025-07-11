@@ -10,7 +10,36 @@
 #include "mpu6050_i2cdev.h"
 #include <mpu6050.h>
 
-static int mpu6050_i2cdev_read_raw(mpu6050_t *mpu6050, float acc[], float gyro[]);
+static int mpu6050_i2cdev_read_raw(mpu6050_t *mpu6050)
+{
+    int16_t *acc_raw = mpu6050->acc.raw;
+    int16_t *gyro_raw = mpu6050->gyro.raw;
+    
+	char data[14];
+	char reg[1] = {ACCEL_XOUT_H};
+
+	int ret;		
+	ret = write(mpu6050->fd, reg, 1);
+	if (unlikely(ret != 1)) {
+		perror("i2cdev_read_raw, write err");
+        return -1;
+	}
+		
+	ret = read(mpu6050->fd, data, 14);
+	if (unlikely(ret != 14)) {
+		perror("i2cdev_read_raw, read err");
+        return -1;
+	}
+
+    for (int i = 0; i < 3; i++) {
+        int idx = 2 * i;
+
+        acc_raw[i] = (data[idx] << 8) | data[idx + 1];
+        gyro_raw[i] = (data[idx + 8] << 8) | data[idx + 9];
+    }
+
+    return 0;
+}
 
 int mpu6050_i2cdev_init(mpu6050_t *mpu6050, unsigned int dev)
 {
@@ -78,43 +107,8 @@ int mpu6050_i2cdev_init(mpu6050_t *mpu6050, unsigned int dev)
 	
     mpu6050->read_raw = mpu6050_i2cdev_read_raw;
 
+    mpu6050->acc.scale = (1.0f / ACC_FS_SENSITIVITY);
+    mpu6050->gyro.scale = (1.0f / GYRO_FS_SENSITIVITY);
+
 	return 0;
-}
-
-static int mpu6050_i2cdev_read_raw(mpu6050_t *mpu6050, float acc[], float gyro[])
-{
-	char data[14];
-	
-	char reg[1] = {ACCEL_XOUT_H};
-
-	int ret;		
-	ret = write(mpu6050->fd, reg, 1);
-	if (unlikely(ret != 1)) {
-		perror("i2cdev_read_raw, write err");
-        return -1;
-	}
-		
-	ret = read(mpu6050->fd, data, 14);
-	if (unlikely(ret != 14)) {
-		perror("i2cdev_read_raw, read err");
-        return -1;
-	}
-
-	int16_t accel_x = (data[0] << 8) | data[1];
-	int16_t accel_y = (data[2] << 8) | data[3];
-	int16_t accel_z = (data[4] << 8) | data[5];
-
-	int16_t gyro_x = (data[8] << 8) | data[9];
-	int16_t gyro_y = (data[10] << 8) | data[11];
-	int16_t gyro_z = (data[12] << 8) | data[13];
-
-	acc[X] = (float)accel_x / ACC_FS_SENSITIVITY;
-	acc[Y] = (float)accel_y / ACC_FS_SENSITIVITY;
-	acc[Z] = (float)accel_z / ACC_FS_SENSITIVITY;
-
-	gyro[X] = (float)gyro_x / GYRO_FS_SENSITIVITY;
-	gyro[Y] = (float)gyro_y / GYRO_FS_SENSITIVITY;
-	gyro[Z] = (float)gyro_z / GYRO_FS_SENSITIVITY;
-
-    return 0;
 }

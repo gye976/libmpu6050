@@ -8,10 +8,10 @@
 #include "mpu6050_i2cdev.h"
 #include "mpu6050_iio.h"
 
-#define mpu_dbg(format, ...) \
-       mpu_print(format, ##__VA_ARGS__)
+#define mpu_dbg(f) \
+       f
 
-#define mpu_print(format, ...) \
+#define mpu_err(format, ...) \
        fprintf(stderr, "%s:%d: "format, __func__, __LINE__, ##__VA_ARGS__)
 
 
@@ -30,17 +30,41 @@
 	unlikely(fd == -1) ? ({ perror("open"); fprintf(stderr, "path:%s\n", path); -1; }) : 0; \
 })
 
-typedef struct mpu6050 {
-	/* current value */
+typedef struct acc {
+	int16_t raw[3];
+	float m_s2[3];
+
+	float scale;
+	/* Angle calculated acc */
 	float angle[3];
-	float gyro[3];
+} acc_t;
 
-	float gyro_bias[3];
-	float alpha;
+typedef struct gyro {
+	int16_t raw[3];
+	float rad_s[3];
+	float bias[3];
 
-	float sampling_dt;
+	float scale;
+	/* Angle calculated gyro */
+	float angle[3];
+
+	uint8_t sampling_ms;
+} gyro_t;
+
+typedef struct mpu6050 {
+	acc_t acc;
+	gyro_t gyro;
+
+	/* Final output angle. */
+	float angle[3];
+
+	/* Complementary Filter Ratio between acc and gyro */
+	float cf_ratio;
+
+	/* Filter gain */
+	float gain;
 	
-	int (*read_raw)(struct mpu6050 *mpu6050, float acc[], float gyro[]);
+	int (*read_raw)(struct mpu6050 *mpu6050);
 
 	int fd;
 	mpu6050_iio_t iio;
@@ -54,8 +78,11 @@ enum enum_angle {
 	PITCH, ROLL, YAW
 };
 
-int mpu6050_calibrate(mpu6050_t *mpu6050, unsigned int num, float alpha);
+int mpu6050_calibrate(mpu6050_t *mpu6050, unsigned int num);
 int mpu6050_calc_angle(mpu6050_t *mpu6050);
+
+void mpu6050_print_raw(mpu6050_t *mpu6050);
+void mpu6050_print_val(mpu6050_t *mpu6050);
 
 #endif 
 

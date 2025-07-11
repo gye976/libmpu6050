@@ -10,7 +10,7 @@
 #include "mpu6050_iio.h"
 #include <mpu6050.h>
 
-static int mpu6050_iio_read_raw(mpu6050_t *mpu6050, float acc[], float gyro[]);
+static int mpu6050_iio_read_raw(mpu6050_t *mpu6050);
 
 void a()
 {
@@ -66,7 +66,7 @@ int mpu6050_iio_init(mpu6050_t *mpu6050)
 	return 0;
 }
 
-static int mpu6050_iio_read_raw(mpu6050_t *mpu6050, float acc[], float gyro[])
+static int mpu6050_iio_read_raw(mpu6050_t *mpu6050)
 {
     struct iio_buffer *buf = mpu6050->iio.buf;
     struct iio_channel **chans = mpu6050->iio.chans;
@@ -85,13 +85,13 @@ static int mpu6050_iio_read_raw(mpu6050_t *mpu6050, float acc[], float gyro[])
         printf("%d : %d\n", i, val[i]);
     }
 
-	acc[X] = val[0];
-	acc[Y] = val[1];
-	acc[Z] = val[2];
+	// acc[X] = val[0];
+	// acc[Y] = val[1];
+	// acc[Z] = val[2];
 
-	gyro[X] = val[3];
-	gyro[Y] = val[4];
-	gyro[Z] = val[5];
+	// gyro[X] = val[3];
+	// gyro[Y] = val[4];
+	// gyro[Z] = val[5];
 
     return 0;
 }
