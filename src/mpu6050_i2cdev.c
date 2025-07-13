@@ -14,8 +14,12 @@ static int mpu6050_i2cdev_read_raw(mpu6050_t *mpu6050)
 {
     int16_t *acc_raw = mpu6050->acc.raw;
     int16_t *gyro_raw = mpu6050->gyro.raw;
-    
-	char data[14];
+    int16_t (*acc_buf)[3] = mpu6050->acc.buf;
+    int16_t (*gyro_buf)[3] = mpu6050->gyro.buf;
+    int buf_i = mpu6050->buf_i;
+
+ 	char data[14];
+
 	char reg[1] = {ACCEL_XOUT_H};
 
 	int ret;		
@@ -34,9 +38,16 @@ static int mpu6050_i2cdev_read_raw(mpu6050_t *mpu6050)
     for (int i = 0; i < 3; i++) {
         int idx = 2 * i;
 
-        acc_raw[i] = (data[idx] << 8) | data[idx + 1];
-        gyro_raw[i] = (data[idx + 8] << 8) | data[idx + 9];
+        acc_raw[i] -= acc_buf[buf_i][i] / SMA_N;
+        gyro_raw[i] -= gyro_buf[buf_i][i] / SMA_N;
+        
+        acc_buf[buf_i][i] = (data[idx] << 8) | data[idx + 1];
+        gyro_buf[buf_i][i] = (data[idx + 8] << 8) | data[idx + 9];
+
+        acc_raw[i] += acc_buf[buf_i][i] / SMA_N;
+        gyro_raw[i] += gyro_buf[buf_i][i] / SMA_N;
     }
+    mpu6050->buf_i = (buf_i + 1) % SMA_N;
 
     return 0;
 }
@@ -109,6 +120,8 @@ int mpu6050_i2cdev_init(mpu6050_t *mpu6050, unsigned int dev)
 
     mpu6050->acc.scale = (1.0f / ACC_FS_SENSITIVITY);
     mpu6050->gyro.scale = (1.0f / GYRO_FS_SENSITIVITY);
+
+    mpu6050_init(mpu6050);
 
 	return 0;
 }

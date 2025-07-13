@@ -63,6 +63,7 @@ int mpu6050_iio_init(mpu6050_t *mpu6050)
     for (int i = 0; i < 6; i++) {
         mpu_iio->chans[i] = chans[i];
     }
+
 	return 0;
 }
 

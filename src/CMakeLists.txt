@@ -12,7 +12,3 @@ target_link_libraries(mpu6050 PRIVATE m iio)
 
 install(TARGETS mpu6050 DESTINATION lib)
 install(FILES mpu6050.h mpu6050_i2cdev.h DESTINATION include)
-
-if (USE_FIFO)
-	target_compile_definitions(mpu6050 PRIVATE USE_FIFO)
-endif()

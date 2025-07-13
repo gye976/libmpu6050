@@ -32,6 +32,19 @@ void mpu6050_print_val(mpu6050_t *mpu6050)
         printf("gyro rad_s:%f, %f, %f\n\n", rad_s[X], rad_s[Y], rad_s[Z]);
 }
 
+int mpu6050_init(mpu6050_t *mpu6050)
+{
+	int ret;
+
+	for (int i = 0; i < SMA_N; i++) {
+		ret = mpu6050->read_raw(mpu6050);
+		if (ret)
+			return -1;
+	}
+
+	return 0;	
+}
+
 static int mpu6050_read_raw(mpu6050_t *mpu6050)
 {
 	int ret;

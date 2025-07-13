@@ -9,11 +9,3 @@ project(
 
 add_subdirectory(src)
 add_subdirectory(example)
-
-option(USE_FIFO "Use FIFO" OFF)
-
-if(USE_FIFO)
-    message(STATUS "FIFO enabled")
-else()
-    message(STATUS "FIFO disabled")
-endif()

@@ -8,6 +8,8 @@
 #include "mpu6050_i2cdev.h"
 #include "mpu6050_iio.h"
 
+#define SMA_N	5
+
 #define mpu_dbg(f) \
        f
 
@@ -31,6 +33,7 @@
 })
 
 typedef struct acc {
+	int16_t buf[SMA_N][3];
 	int16_t raw[3];
 	float m_s2[3];
 
@@ -40,6 +43,7 @@ typedef struct acc {
 } acc_t;
 
 typedef struct gyro {
+	int16_t buf[SMA_N][3];
 	int16_t raw[3];
 	float rad_s[3];
 	float bias[3];
@@ -54,6 +58,8 @@ typedef struct gyro {
 typedef struct mpu6050 {
 	acc_t acc;
 	gyro_t gyro;
+
+	int buf_i;
 
 	/* Final output angle. */
 	float angle[3];
@@ -77,6 +83,8 @@ enum enum_axis {
 enum enum_angle {
 	PITCH, ROLL, YAW
 };
+
+int mpu6050_init(mpu6050_t *mpu6050);
 
 int mpu6050_calibrate(mpu6050_t *mpu6050, unsigned int num);
 int mpu6050_calc_angle(mpu6050_t *mpu6050);
