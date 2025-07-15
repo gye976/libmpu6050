@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <endian.h>
+#include <pthread.h>
+#include <time.h>
 
 #include "mpu6050.h"
 
@@ -14,14 +16,14 @@ static inline int16_t be16toh_s(int16_t be_val)
     return (int16_t)be16toh(be_val);
 }
 
-void mpu6050_print_raw(mpu6050_t *mpu6050)
-{
-	int16_t *acc_raw = mpu6050->acc.raw;
-	int16_t *gyro_raw = mpu6050->gyro.raw;
-	
-        printf("acc raw: %d, %d, %d\n", acc_raw[X], acc_raw[Y], acc_raw[Z]);
-        printf("gyro raw:%d, %d, %d\n\n", gyro_raw[X], gyro_raw[Y], gyro_raw[Z]);
-}
+// void mpu6050_print_raw(mpu6050_t *mpu6050)
+// {
+// 	int16_t *acc_raw = mpu6050->acc.raw;
+// 	int16_t *gyro_raw = mpu6050->gyro.raw;
+// 	
+//         printf("acc raw: %d, %d, %d\n", acc_raw[X], acc_raw[Y], acc_raw[Z]);
+//         printf("gyro raw:%d, %d, %d\n\n", gyro_raw[X], gyro_raw[Y], gyro_raw[Z]);
+// }
 
 void mpu6050_print_val(mpu6050_t *mpu6050)
 {
@@ -32,60 +34,166 @@ void mpu6050_print_val(mpu6050_t *mpu6050)
         printf("gyro rad_s:%f, %f, %f\n\n", rad_s[X], rad_s[Y], rad_s[Z]);
 }
 
+
+void mpu6050_convert(mpu6050_t *mpu6050, const int16_t *src)
+{
+	acc_t *acc = &mpu6050->acc;
+	gyro_t *gyro = &mpu6050->gyro;
+	int buf_i = mpu6050->buf_i;
+
+	for (int i = 0; i < 3; i++) {
+		acc->raw[i] -= acc->buf[buf_i][i] / SMA_N;
+		gyro->raw[i] -= gyro->buf[buf_i][i] / SMA_N;
+        
+		acc->buf[buf_i][i] = src[i] / SMA_N;
+		gyro->buf[buf_i][i] = src[i + 3] / SMA_N;
+
+		acc->raw[i] += acc->buf[buf_i][i] / SMA_N;
+		gyro->raw[i] += gyro->buf[buf_i][i] / SMA_N;
+	}
+    
+	mpu6050->buf_i = (buf_i + 1) % SMA_N;
+}
+
+void* mpu6050_raw_loop(void* arg) 
+{
+	mpu6050_t *mpu6050 = arg;
+	int16_t buf[6];
+	int ret;
+
+	if (unlikely(mpu6050->read_hw == NULL)) {
+		mpu_err("read_hw is NULL");
+		return (void*)(-1);
+	}
+
+	while (1) {
+	 	ret = mpu6050->read_hw(mpu6050, buf);
+		if (unlikely(ret)) {
+			return (void*)(-1);
+		}
+
+		mpu6050_convert(mpu6050, buf);
+	}
+	
+	return (void*)(-1);
+}
+
+void timespec_get_diff(struct timespec *start, struct timespec *end, struct timespec *diff) 
+{
+    if ((end->tv_nsec - start->tv_nsec) < 0) {
+        diff->tv_sec  = end->tv_sec - start->tv_sec - 1;
+        diff->tv_nsec = end->tv_nsec - start->tv_nsec + 1000000000ULL;
+    } else {
+        diff->tv_sec  = end->tv_sec - start->tv_sec;
+        diff->tv_nsec = end->tv_nsec - start->tv_nsec;
+    }
+}
+
+void* mpu6050_angle_loop(void* arg) 
+{
+	mpu6050_t *mpu6050 = arg;
+	int ret;
+	struct timespec ts[2];
+	struct timespec ts_sleep, ts_diff;
+	struct timespec ts_sampling = {
+		.tv_sec = 0,
+		.tv_nsec = mpu6050->gyro.sampling_ms * (1000) * (1000),
+	};
+
+	while (1) {
+		ret = clock_gettime(CLOCK_MONOTONIC, &ts[0]);
+		if (unlikely(ret)) {
+			return (void*)(-1);
+		}
+
+	 	ret = mpu6050_calc_angle(mpu6050);
+		if (unlikely(ret)) {
+			return (void*)(-1);
+		}
+
+		ret = clock_gettime(CLOCK_MONOTONIC, &ts[1]);
+		if (unlikely(ret)) {
+			return (void*)(-1);
+		}
+
+		timespec_get_diff(&ts[0], &ts[1], &ts_diff);	
+		timespec_get_diff(&ts_diff, &ts_sampling, &ts_sleep);	
+		ret = nanosleep(&ts_sleep, NULL);
+		if (unlikely(ret)) {
+			return (void*)(-1);
+		}
+	}
+	
+	return (void*)(-1);
+}
+
 int mpu6050_init(mpu6050_t *mpu6050)
 {
 	int ret;
+	int16_t buf[6];
+	acc_t *acc = &mpu6050->acc;
+	gyro_t *gyro = &mpu6050->gyro;
 
-	for (int i = 0; i < SMA_N; i++) {
-		ret = mpu6050->read_raw(mpu6050);
-		if (ret)
-			return -1;
+	ret = mpu6050->read_hw(mpu6050, buf);
+	if (unlikely(ret)) {
+		return -1;
 	}
+	
+	for (int i = 0; i < SMA_N; i++) {
+		for (int j = 0; j < 3; j++) {
+			acc->buf[i][j] = buf[j];
+			gyro->buf[i][j] = buf[j + 3];
+		}
+	}
+	for (int i = 0; i < 3; i++) {
+               acc->raw[i] = buf[i];
+               gyro->raw[i] = buf[i + 3];
+	}
+
+	ret = pthread_create(&mpu6050->raw_loop, NULL, mpu6050_raw_loop, mpu6050);
+        if (unlikely(ret)) {
+		perror("pthread_create");
+		return -1;	
+        }
+
+	ret = pthread_create(&mpu6050->angle_loop, NULL, mpu6050_angle_loop, mpu6050);
+        if (unlikely(ret)) {
+		perror("pthread_create");
+		return -1;	
+        }
 
 	return 0;	
 }
 
 static int mpu6050_read_raw(mpu6050_t *mpu6050)
 {
-	int ret;
+	(void)mpu6050;
 
-	if (unlikely(mpu6050->read_raw == NULL)) {
-		fprintf(stderr, "read_raw is NULL");
-		return -1;
-	}
-
-	ret = mpu6050->read_raw(mpu6050);
-
-        mpu_dbg(mpu6050_print_raw(mpu6050));
-
-	return ret;
+	return 0;
 }
 
 static void mpu6050_apply_scale(mpu6050_t *mpu6050)
 {
-	int16_t *acc_raw = mpu6050->acc.raw;
-	int16_t *gyro_raw = mpu6050->gyro.raw;
-	
-	float *m_s2 = mpu6050->acc.m_s2;
-	float *rad_s = mpu6050->gyro.rad_s;
+	acc_t *acc = &mpu6050->acc;
+	gyro_t *gyro = &mpu6050->gyro;
 	
 	float acc_scale = mpu6050->acc.scale;
 	float gyro_scale =  mpu6050->gyro.scale;
 
 	for (int i = 0; i < 3; i++) {
-		m_s2[i] = acc_raw[i] * acc_scale;
-		rad_s[i] = gyro_raw[i] * gyro_scale;
+		acc->m_s2[i] = acc->raw[i] * acc_scale;
+		gyro->rad_s[i] = gyro->raw[i] * gyro_scale;
 	}
 }
 
-static void mpu6050_gyro_apply_bias(gyro_t *gyro)
-{
-	float *rad_s = gyro->rad_s;
-	float *bias = gyro->bias;
-
-	for (int i = 0; i < 3; i++)
-		rad_s[i] -= bias[i];
-}		
+// static void mpu6050_gyro_apply_bias(gyro_t *gyro)
+// {
+// 	float *rad_s = gyro->rad_s;
+// 	float *bias = gyro->bias;
+//
+// 	for (int i = 0; i < 3; i++)
+// 		rad_s[i] -= bias[i];
+// }		
 
 static int mpu6050_gyro_get_angle(gyro_t *gyro, float cur_angle[])
 {
@@ -133,23 +241,10 @@ static int mpu6050_apply_angle(mpu6050_t *mpu6050)
 	float *gyro_angle = mpu6050->gyro.angle;
 	float *cur_angle = mpu6050->angle;
 	float cf_ratio = mpu6050->cf_ratio;
-	float alpha = mpu6050->alpha;
 	
-	float sampling_angle[3];
-
-	if (unlikely(cf_ratio <= 0.0f || cf_ratio > 1.0f)) {
-		return -1;
-	}
-	if (unlikely(alpha <= 0.0f || alpha > 1.0f)) {
-		return -1;
-	}
-
 	for (int i = 0; i < 2; i++)
-		sampling_angle[i] = (1.0 - cf_ratio) * acc_angle[i] + cf_ratio * gyro_angle[i];
-	sampling_angle[YAW] =  gyro_angle[YAW];
-
-	for (int i = 0; i < 3; i++) 
-		cur_angle[i] = alpha * cur_angle[i] + (1.0f - alpha) * sampling_angle[i];
+		cur_angle[i] = (1.0 - cf_ratio) * acc_angle[i] + cf_ratio * gyro_angle[i];
+	cur_angle[YAW] =  gyro_angle[YAW];
 
 	return 0;
 }
@@ -227,7 +322,7 @@ int mpu6050_calc_angle(mpu6050_t *mpu6050)
 
 	mpu6050_apply_scale(mpu6050);
 
-	mpu6050_gyro_apply_bias(gyro);
+	//mpu6050_gyro_apply_bias(gyro);
 	
 	ret = mpu6050_acc_get_angle(acc);
 	if (ret) {

@@ -35,6 +35,7 @@
 typedef struct acc {
 	int16_t buf[SMA_N][3];
 	int16_t raw[3];
+
 	float m_s2[3];
 
 	float scale;
@@ -45,6 +46,7 @@ typedef struct acc {
 typedef struct gyro {
 	int16_t buf[SMA_N][3];
 	int16_t raw[3];
+
 	float rad_s[3];
 	float bias[3];
 
@@ -55,10 +57,10 @@ typedef struct gyro {
 	uint8_t sampling_ms;
 } gyro_t;
 
+typedef struct mpu6050 mpu6050_t;
 typedef struct mpu6050 {
 	acc_t acc;
 	gyro_t gyro;
-
 	int buf_i;
 
 	/* Final output angle. */
@@ -66,11 +68,9 @@ typedef struct mpu6050 {
 
 	/* Complementary Filter Ratio between acc and gyro */
 	float cf_ratio;
-
-	/* Low Pass Filter gain */
-	float alpha;
 	
-	int (*read_raw)(struct mpu6050 *mpu6050);
+	int (*read_hw)(mpu6050_t *mpu6050, int16_t *dest);
+	pthread_t raw_loop, angle_loop;
 
 	int fd;
 	mpu6050_iio_t iio;
