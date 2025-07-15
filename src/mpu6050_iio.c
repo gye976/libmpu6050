@@ -49,6 +49,8 @@ int mpu6050_iio_init(mpu6050_t *mpu6050)
 		"anglvel_x", "anglvel_y", "anglvel_z" 
 	};
 
+	memset(mpu6050, 0, sizeof(mpu6050_t));
+
 	ctx = iio_create_local_context();
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context\n");
