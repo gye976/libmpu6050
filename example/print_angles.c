@@ -5,7 +5,7 @@
 
 #include "mpu6050.h"
 
-uint8_t backend_is_libiio = 0;
+int backend = 0;
 int print_ms = 1;
 int sampling_ms = 1;
 
@@ -17,9 +17,9 @@ static void parse_options(int argc, char *argv[])
 		switch (c) {
 		case 'b':
 			if (!strcmp(optarg, "iio")) {
-				backend_is_libiio = 1;
+				backend = 1;
 			} else if(!strcmp(optarg, "i2cdev")) {
-				backend_is_libiio = 0;
+				backend = 2;
 			} else {
 				fprintf(stderr, "-b err\n");
 				exit(1);
@@ -53,18 +53,25 @@ int main(int argc, char *argv[])
 
 	parse_options(argc, argv);
 
-	if (backend_is_libiio) {
+	switch (backend) {
+	case 1:
 		ret = mpu6050_iio_init(&mpu); 
 		if (unlikely(ret)) {
 			fprintf(stderr, "mpu6050_iio_init err\n");
 			return -1;
 		}
-	} else {
+		break;
+	case 2:
 		ret = mpu6050_i2cdev_init(&mpu, 1); 
 		if (unlikely(ret)) {
 			fprintf(stderr, "mpu6050_i2cdev_init err\n");
 			return -1;
 		}
+		break;
+	default:
+		fprintf(stderr, "No backend\n");
+		exit(1);
+		break;
 	}
 
 	mpu.cf_ratio = 0.97f; 
