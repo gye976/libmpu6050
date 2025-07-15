@@ -76,11 +76,20 @@ int mpu6050_iio_init(mpu6050_t *mpu6050)
 		return -1;
 	}
 
-	mpu6050->read_hw = mpu6050_iio_read_hw;
-
 	mpu_iio->buf = buf;
 	for (int i = 0; i < 6; i++) {
 		mpu_iio->chans[i] = chans[i];
+	}
+
+	mpu6050->read_hw = mpu6050_iio_read_hw;
+
+	ret = iio_channel_attr_read_double(chans[0], "scale", &mpu6050->acc.scale);
+	if (ret) {
+		return -1;
+	}
+	ret = iio_channel_attr_read_double(chans[3], "scale", &mpu6050->gyro.scale);
+	if (ret) {
+		return -1;
 	}
 
 	ret = mpu6050_init(mpu6050);

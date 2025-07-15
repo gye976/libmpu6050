@@ -38,7 +38,7 @@ typedef struct acc {
 
 	float m_s2[3];
 
-	float scale;
+	double scale;
 	/* Angle calculated acc */
 	float angle[2];
 } acc_t;
@@ -50,7 +50,7 @@ typedef struct gyro {
 	float rad_s[3];
 	float bias[3];
 
-	float scale;
+	double scale;
 	/* Angle calculated gyro */
 	float angle[3];
 
