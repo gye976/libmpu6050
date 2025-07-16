@@ -53,10 +53,8 @@ typedef struct gyro {
 typedef struct mpu6050 mpu6050_t;
 
 typedef struct mpu6050_iface {
-	int (*alloc)(mpu6050_t *mpu6050);
 	int (*init)(mpu6050_t *mpu6050);
 	int (*read)(mpu6050_t *mpu6050, int16_t *dest);
-	void *data;
 } mpu6050_iface_t;
 
 typedef struct mpu6050 {
