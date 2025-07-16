@@ -7,39 +7,20 @@
 #include <endian.h>
 #include <iio.h>
 
-#include "mpu6050_iio.h"
-#include <mpu6050.h>
+#include <mpu6050_core.h>
+#include <mpu6050_iio.h>
 
-static int mpu6050_iio_read_hw(mpu6050_t *mpu6050, int16_t *dest)
+// TODO: destroy
+// void a()
+// {
+//      iio_buffer_destroy(buf);
+//      iio_context_destroy(ctx);
+// }
+
+static int mpu6050_iface_init_iio(mpu6050_t *mpu6050)
 {
-    struct iio_buffer *buf = mpu6050->iio.buf;
-    struct iio_channel **chans = mpu6050->iio.chans;
-
-    ssize_t nbytes;
-    
-    nbytes = iio_buffer_refill(buf);
-    if (nbytes < 0) {
-        fprintf(stderr, "Failed to refill buffer\n");
-        return -1;
-    }
-
-    for (int i = 0; i < 6; i++) {
-        iio_channel_convert(chans[i], &dest[i], iio_buffer_first(buf, chans[i]));
-    }
-
-    return 0;
-}
-
-void a()
-{
-    // iio_buffer_destroy(buf);
-    // iio_context_destroy(ctx);
-}
-
-int mpu6050_iio_init(mpu6050_t *mpu6050)
-{
+	mpu6050_iio_data_t *data = mpu6050->data;
 	int ret;
-	mpu6050_iio_t *mpu_iio = &mpu6050->iio;
 	struct iio_context *ctx;
 	struct iio_device *dev;
 	struct iio_buffer *buf;
@@ -48,8 +29,6 @@ int mpu6050_iio_init(mpu6050_t *mpu6050)
 		"accel_x", "accel_y", "accel_z", 
 		"anglvel_x", "anglvel_y", "anglvel_z" 
 	};
-
-	memset(mpu6050, 0, sizeof(mpu6050_t));
 
 	ctx = iio_create_local_context();
 	if (!ctx) {
@@ -78,12 +57,10 @@ int mpu6050_iio_init(mpu6050_t *mpu6050)
 		return -1;
 	}
 
-	mpu_iio->buf = buf;
+	data->buf = buf;
 	for (int i = 0; i < 6; i++) {
-		mpu_iio->chans[i] = chans[i];
+		data->chans[i] = chans[i];
 	}
-
-	mpu6050->read_hw = mpu6050_iio_read_hw;
 
 	ret = iio_channel_attr_read_double(chans[0], "scale", &mpu6050->acc.scale);
 	if (ret) {
@@ -94,10 +71,48 @@ int mpu6050_iio_init(mpu6050_t *mpu6050)
 		return -1;
 	}
 
-	ret = mpu6050_init(mpu6050);
+	return 0;
+}
+
+static int mpu6050_iface_read_iio(mpu6050_t *mpu6050, int16_t *dest)
+{
+	mpu6050_iio_data_t *data = mpu6050->data;
+	struct iio_buffer *buf = data->buf;
+	struct iio_channel **chans = data->chans;
+	ssize_t nbytes;
+
+	nbytes = iio_buffer_refill(buf);
+	if (nbytes < 0) {
+	fprintf(stderr, "Failed to refill buffer\n");
+	return -1;
+	}
+
+	for (int i = 0; i < 6; i++) {
+	iio_channel_convert(chans[i], &dest[i], iio_buffer_first(buf, chans[i]));
+	}
+
+	return 0;
+}
+
+static mpu6050_iface_t mpu6050_iface_iio = {
+	.init = mpu6050_iface_init_iio,
+	.read = mpu6050_iface_read_iio,
+};
+
+int mpu6050_iio_init(mpu6050_t *mpu6050)
+{
+	int ret;
+
+	ret = mpu6050_core_alloc(mpu6050, sizeof(mpu6050_iio_data_t));
+	if (ret) {
+		return ret;
+	}
+
+	ret = mpu6050_core_init(mpu6050, &mpu6050_iface_iio);
 	if (ret) {
 		return ret;
 	}
 
 	return 0;
 }
+

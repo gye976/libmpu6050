@@ -171,16 +171,17 @@ static int mpu6050_calc_angle(mpu6050_t *mpu6050)
 static void* mpu6050_raw_loop(void* arg) 
 {
 	mpu6050_t *mpu6050 = arg;
+	mpu6050_iface_t *iface = mpu6050->iface;
 	int16_t buf[6];
 	int ret;
 
-	if (unlikely(mpu6050->read_hw == NULL)) {
+	if (unlikely(iface->read == NULL)) {
 		mpu_err("read_hw is NULL");
 		return (void*)(-1);
 	}
 
 	while (1) {
-	 	ret = mpu6050->read_hw(mpu6050, buf);
+	 	ret = iface->read(mpu6050, buf);
 		if (unlikely(ret)) {
 			return (void*)(-1);
 		}
@@ -229,14 +230,50 @@ static void* mpu6050_angle_loop(void* arg)
 	return (void*)(-1);
 }
 
-int mpu6050_init(mpu6050_t *mpu6050)
+int mpu6050_core_alloc(mpu6050_t *mpu6050, unsigned int size)
+{
+	if (!mpu6050) {
+		mpu_err("NULL args, err");
+		return -1;
+	}
+
+	if (!memset(mpu6050, 0, sizeof(*mpu6050))) {
+		perror("");
+		return -1;
+	}
+
+	mpu6050->data = malloc(size);
+	if (!mpu6050->data) {
+		perror("");
+		return -1;
+	}
+
+	return 0;	
+}
+int mpu6050_core_init(mpu6050_t *mpu6050, mpu6050_iface_t *iface)
 {
 	int ret;
 	int16_t buf[6];
 	acc_t *acc = &mpu6050->acc;
 	gyro_t *gyro = &mpu6050->gyro;
 
-	ret = mpu6050->read_hw(mpu6050, buf);
+	if (!mpu6050 || !iface) {
+		mpu_err("NULL args, err");
+		return -1;
+	}
+	mpu6050->iface = iface;
+	
+	if (!iface->read || !iface->init) {
+		mpu_err("NULL iface, err");
+		return -1;
+	}
+
+	ret = iface->init(mpu6050);	
+	if (unlikely(ret)) {
+		return -1;
+	}
+
+	ret = iface->read(mpu6050, buf);	
 	if (unlikely(ret)) {
 		return -1;
 	}

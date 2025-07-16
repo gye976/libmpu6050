@@ -1,5 +1,6 @@
 #include <sys/ioctl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -7,52 +8,21 @@
 #include <endian.h>
 #include <linux/i2c-dev.h>
 
-#include "mpu6050_i2cdev.h"
-#include <mpu6050.h>
+#include <mpu6050_core.h>
+#include <mpu6050_i2cdev.h>
 
-static int mpu6050_i2cdev_read_hw(mpu6050_t *mpu6050, int16_t *dest)
+static int mpu6050_iface_init_i2cdev(mpu6050_t *mpu6050)
 {
- 	char data[14];
-	char reg[1] = {ACCEL_XOUT_H};
-	int ret;		
-	int i = 0;
-
-	ret = write(mpu6050->fd, reg, 1);
-	if (unlikely(ret != 1)) {
-		perror("i2cdev_read_hw, write err");
-		return -1;
-	}
-		
-	ret = read(mpu6050->fd, data, 14);
-	if (unlikely(ret != 14)) {
-		perror("i2cdev_read_raw, read err");
-		return -1;
-	}
-
-	for (i = 0; i < 3; i++) {
-		int idx = i * 2;
-
-		dest[i] = (data[idx] << 8) | data[idx + 1];
-		dest[i + 3] = (data[idx + 8] << 8) | data[idx + 9];
-	}
-
-	return 0;
-}
-
-int mpu6050_i2cdev_init(mpu6050_t *mpu6050, unsigned int dev)
-{
-	int ret;
+	mpu6050_i2cdev_data_t *data = mpu6050->data;
 	int fd;
+	int ret;
 	char path[20];
 
-	memset(mpu6050, 0, sizeof(mpu6050_t));
-
-	sprintf(path, "/dev/i2c-%d", dev);
+	sprintf(path, "/dev/i2c-%d", data->dev);
 	ret = open_fd(fd, path, O_RDWR);
 	if (unlikely(ret)) {
 		return ret;
 	}
-	mpu6050->fd = fd;
 
 	if (ioctl(fd, I2C_SLAVE, MPU6050_ADDR) < 0) {
 		perror("Failed to connect to MPU6050 sensor");
@@ -89,12 +59,67 @@ int mpu6050_i2cdev_init(mpu6050_t *mpu6050, unsigned int dev)
 		return -1;
 	}
 
-	mpu6050->read_hw = mpu6050_i2cdev_read_hw;
-
+	// TODO: scale factor
 	mpu6050->acc.scale = (1.0f / ACC_FS_SENSITIVITY);
 	mpu6050->gyro.scale = (1.0f / GYRO_FS_SENSITIVITY);
 
-	mpu6050_init(mpu6050);
+	data->fd = fd;
+
+	return 0;
+}
+
+static int mpu6050_iface_read_i2cdev(mpu6050_t *mpu6050, int16_t *dest)
+{
+	mpu6050_i2cdev_data_t *data = mpu6050->data;
+	int fd = data->fd;
+ 	char buf[14];
+	char reg[1] = {ACCEL_XOUT_H};
+	int ret;		
+	int i = 0;
+
+	ret = write(fd, reg, 1);
+	if (unlikely(ret != 1)) {
+		perror("i2cdev_read_hw, write err");
+		return -1;
+	}
+		
+	ret = read(fd, buf, 14);
+	if (unlikely(ret != 14)) {
+		perror("i2cdev_read_raw, read err");
+		return -1;
+	}
+
+	for (i = 0; i < 3; i++) {
+		int idx = i * 2;
+
+		dest[i] = (buf[idx] << 8) | buf[idx + 1];
+		dest[i + 3] = (buf[idx + 8] << 8) | buf[idx + 9];
+	}
+
+	return 0;
+}
+
+static mpu6050_iface_t mpu6050_iface_i2cdev = {
+	.init = mpu6050_iface_init_i2cdev,
+	.read = mpu6050_iface_read_i2cdev,
+};
+
+int mpu6050_i2cdev_init(mpu6050_t *mpu6050, int dev)
+{
+	mpu6050_i2cdev_data_t *data;
+	int ret;
+
+	ret = mpu6050_core_alloc(mpu6050, sizeof(mpu6050_i2cdev_data_t));
+	if (ret) {
+		return ret;
+	}
+	data = mpu6050->data;
+	data->dev = dev;		
+
+	ret = mpu6050_core_init(mpu6050, &mpu6050_iface_i2cdev);
+	if (ret) {
+		return ret;
+	}
 
 	return 0;
 }

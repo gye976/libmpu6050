@@ -1,7 +1,7 @@
 #ifndef MPU6050_I2CDEV_H
 #define MPU6050_I2CDEV_H
 
-typedef struct mpu6050 mpu6050_t;
+#include <mpu6050_core.h>
 
 #define INT_ENABLE	0x38
 #define INT_STATUS	0x3A
@@ -24,7 +24,12 @@ typedef struct mpu6050 mpu6050_t;
 #define ACC_FS_SENSITIVITY		4096.0f 
 #define GYRO_FS_SENSITIVITY		65.536f
 
-int mpu6050_i2cdev_init(mpu6050_t *mpu6050, unsigned int dev);
+typedef struct mpu6050_i2cdev_data {
+	int fd;
+	int dev; // /dev/i2c-%d
+} mpu6050_i2cdev_data_t;
+
+int mpu6050_i2cdev_init(mpu6050_t *mpu6050, int dev);
 
 #endif 
 
