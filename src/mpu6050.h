@@ -16,12 +16,7 @@
 #define mpu_err(format, ...) \
        fprintf(stderr, "%s:%d: "format, __func__, __LINE__, ##__VA_ARGS__)
 
-
 #define RADIANS_TO_DEGREES 		((float)(180/3.14159))
-
-#define CF_ALPHA                   0.96f
-#define A_ACC	0.3f
-#define A_GYRO	0.5f
 
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
@@ -87,7 +82,6 @@ enum enum_angle {
 int mpu6050_init(mpu6050_t *mpu6050);
 
 int mpu6050_calibrate(mpu6050_t *mpu6050, unsigned int num);
-int mpu6050_calc_angle(mpu6050_t *mpu6050);
 
 void mpu6050_print_raw(mpu6050_t *mpu6050);
 void mpu6050_print_val(mpu6050_t *mpu6050);
